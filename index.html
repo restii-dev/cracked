@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cracked — Game Proxy</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ===== KEY SCREEN ===== */
+    #key-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, #12121a 0%, #050508 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: opacity 0.5s ease, visibility 0.5s ease;
+    }
+
+    #key-screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .logo {
+      font-size: 4rem;
+      font-weight: 800;
+      letter-spacing: -2px;
+      background: linear-gradient(135deg, #00ff9d, #00c3ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 40px rgba(0, 255, 157, 0.3);
+    }
+
+    .tagline {
+      color: #666;
+      font-size: 0.95rem;
+      margin-bottom: 2.5rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    .key-box {
+      background: rgba(20, 20, 30, 0.9);
+      border: 1px solid #1e1e2e;
+      border-radius: 16px;
+      padding: 2.5rem 3rem;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .key-box h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      color: #aaa;
+      text-align: center;
+    }
+
+    #key-input {
+      width: 100%;
+      padding: 0.9rem 1.2rem;
+      font-size: 1.1rem;
+      background: #0d0d14;
+      border: 1px solid #2a2a3a;
+      border-radius: 10px;
+      color: #fff;
+      outline: none;
+      text-align: center;
+      letter-spacing: 3px;
+      transition: border-color 0.2s;
+    }
+
+    #key-input:focus {
+      border-color: #00ff9d;
+    }
+
+    #key-btn {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.9rem;
+      font-size: 1rem;
+      font-weight: 600;
+      background: linear-gradient(135deg, #00ff9d, #00c3ff);
+      border: none;
+      border-radius: 10px;
+      color: #000;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    #key-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 255, 157, 0.3);
+    }
+
+    #key-error {
+      color: #ff4d6a;
+      font-size: 0.85rem;
+      text-align: center;
+      margin-top: 1rem;
+      min-height: 1.2rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    #key-error.show {
+      opacity: 1;
+    }
+
+    /* ===== MAIN APP ===== */
+    #app {
+      display: none;
+      min-height: 100vh;
+      flex-direction: column;
+    }
+
+    #app.visible {
+      display: flex;
+    }
+
+    header {
+      background: rgba(12, 12, 18, 0.95);
+      border-bottom: 1px solid #1a1a28;
+      padding: 0.9rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .header-logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #00ff9d, #00c3ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #greeting {
+      font-size: 0.95rem;
+      color: #888;
+    }
+
+    #greeting span {
+      color: #00ff9d;
+      font-weight: 600;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .nav-tab {
+      padding: 0.5rem 1.1rem;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: #888;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .nav-tab:hover {
+      color: #ccc;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .nav-tab.active {
+      color: #00ff9d;
+      border-color: rgba(0, 255, 157, 0.3);
+      background: rgba(0, 255, 157, 0.08);
+    }
+
+    main {
+      flex: 1;
+      padding: 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* Game cards grid */
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .game-card {
+      background: #12121a;
+      border: 1px solid #1e1e2e;
+      border-radius: 14px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .game-card:hover {
+      transform: translateY(-4px);
+      border-color: #00ff9d;
+      box-shadow: 0 12px 30px rgba(0, 255, 157, 0.12);
+    }
+
+    .game-thumb {
+      height: 140px;
+      background: linear-gradient(135deg, #1a1a28, #0d0d14);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3rem;
+      position: relative;
+    }
+
+    .game-thumb::after {
+      content: '▶';
+      position: absolute;
+      font-size: 1.8rem;
+      opacity: 0;
+      transition: opacity 0.2s;
+      color: #00ff9d;
+    }
+
+    .game-card:hover .game-thumb::after {
+      opacity: 1;
+    }
+
+    .game-info {
+      padding: 1rem 1.1rem;
+    }
+
+    .game-info h3 {
+      font-size: 1.05rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .game-info p {
+      font-size: 0.8rem;
+      color: #666;
+    }
+
+    /* Game player */
+    #player-view {
+      display: none;
+      flex-direction: column;
+      height: calc(100vh - 70px);
+    }
+
+    #player-view.active {
+      display: flex;
+    }
+
+    .player-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .back-btn {
+      padding: 0.5rem 1rem;
+      background: #1a1a28;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+
+    .back-btn:hover {
+      background: #252538;
+    }
+
+    #player-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .game-frame-wrap {
+      flex: 1;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #1e1e2e;
+      position: relative;
+    }
+
+    .game-frame-wrap iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* About / home */
+    .home-hero {
+      text-align: center;
+      padding: 3rem 1rem 2rem;
+    }
+
+    .home-hero h1 {
+      font-size: 2.2rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #00ff9d, #00c3ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .home-hero p {
+      color: #666;
+      max-width: 480px;
+      margin: 0 auto 2rem;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      color: #333;
+      font-size: 0.8rem;
+      border-top: 1px solid #15151f;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- KEY SCREEN -->
+  <div id="key-screen">
+    <div class="logo">CRACKED</div>
+    <div class="tagline">Proxy • Games • Unblocked</div>
+    <div class="key-box">
+      <h2>Enter Access Key</h2>
+      <input type="text" id="key-input" placeholder="XXXX" maxlength="8" autocomplete="off" spellcheck="false">
+      <button id="key-btn">Unlock</button>
+      <div id="key-error">Invalid key. Try again.</div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app">
+    <header>
+      <div class="header-left">
+        <div class="header-logo">CRACKED</div>
+        <div id="greeting">Hello, <span id="user-name">Guest</span></div>
+      </div>
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-view="home">Home</button>
+        <button class="nav-tab" data-view="games">Games</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- HOME VIEW -->
+      <div id="home-view">
+        <div class="home-hero">
+          <h1>Welcome to Cracked</h1>
+          <p>Your private game proxy. Pick a title below or head to the Games tab.</p>
+        </div>
+        <div class="games-grid" id="home-games"></div>
+      </div>
+
+      <!-- GAMES VIEW -->
+      <div id="games-view" style="display:none;">
+        <h2 style="margin-bottom:1.25rem; font-size:1.4rem;">All Games</h2>
+        <div class="games-grid" id="all-games"></div>
+      </div>
+
+      <!-- PLAYER VIEW -->
+      <div id="player-view">
+        <div class="player-bar">
+          <button class="back-btn" id="back-btn">← Back</button>
+          <div id="player-title">Game</div>
+        </div>
+        <div class="game-frame-wrap">
+          <iframe id="game-iframe" allowfullscreen allow="autoplay; fullscreen; gamepad"></iframe>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      Cracked Proxy · For educational / personal use only
+    </footer>
+  </div>
+
+  <script>
+    // ===== KEY SYSTEM =====
+    const KEYS = {
+      "45ad": "Nick",
+      "24bc": "Administrator"
+    };
+
+    const keyInput = document.getElementById("key-input");
+    const keyBtn = document.getElementById("key-btn");
+    const keyError = document.getElementById("key-error");
+    const keyScreen = document.getElementById("key-screen");
+    const app = document.getElementById("app");
+    const userNameEl = document.getElementById("user-name");
+
+    function tryUnlock() {
+      const code = keyInput.value.trim().toLowerCase();
+      if (KEYS[code]) {
+        userNameEl.textContent = KEYS[code];
+        keyScreen.classList.add("hidden");
+        setTimeout(() => {
+          keyScreen.style.display = "none";
+          app.classList.add("visible");
+        }, 500);
+        // remember for session
+        sessionStorage.setItem("cracked_user", KEYS[code]);
+      } else {
+        keyError.classList.add("show");
+        keyInput.value = "";
+        keyInput.focus();
+        setTimeout(() => keyError.classList.remove("show"), 2500);
+      }
+    }
+
+    keyBtn.addEventListener("click", tryUnlock);
+    keyInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") tryUnlock();
+    });
+
+    // auto-login if already unlocked this session
+    const saved = sessionStorage.getItem("cracked_user");
+    if (saved) {
+      userNameEl.textContent = saved;
+      keyScreen.style.display = "none";
+      app.classList.add("visible");
+    }
+
+    // ===== GAMES DATA =====
+    const GAMES = [
+      {
+        id: "retro-bowl",
+        title: "Retro Bowl",
+        desc: "Manage your team & win the championship",
+        emoji: "🏈",
+        url: "https://retro-bowl-plus.vercel.app"
+      },
+      {
+        id: "slope",
+        title: "Slope",
+        desc: "Endless 3D running game",
+        emoji: "⛷️",
+        url: "https://slope-game.github.io/slope/"
+      },
+      {
+        id: "1v1-lol",
+        title: "1v1.LOL",
+        desc: "Build & battle in the arena",
+        emoji: "🔫",
+        url: "https://1v1.lol"
+      },
+      {
+        id: "basket-random",
+        title: "Basket Random",
+        desc: "Chaotic 2-player basketball",
+        emoji: "🏀",
+        url: "https://html5.gamedistribution.com/rvvASMiM/4f2c414c2c5b4b3e9c8e1f8e9c8e1f8e/index.html"
+      },
+      {
+        id: "subway-surfers",
+        title: "Subway Surfers",
+        desc: "Run as far as you can",
+        emoji: "🏃",
+        url: "https://subway-surfers.org"
+      },
+      {
+        id: "cookie-clicker",
+        title: "Cookie Clicker",
+        desc: "Bake cookies. Get upgrades.",
+        emoji: "🍪",
+        url: "https://orteil.dashnet.org/cookieclicker/"
+      }
+    ];
+
+    // render game cards
+    function createCard(game) {
+      const card = document.createElement("div");
+      card.className = "game-card";
+      card.innerHTML = `
+        <div class="game-thumb">${game.emoji}</div>
+        <div class="game-info">
+          <h3>${game.title}</h3>
+          <p>${game.desc}</p>
+        </div>
+      `;
+      card.addEventListener("click", () => openGame(game));
+      return card;
+    }
+
+    const homeGames = document.getElementById("home-games");
+    const allGames = document.getElementById("all-games");
+
+    // show first 4 on home, all on games tab
+    GAMES.slice(0, 4).forEach(g => homeGames.appendChild(createCard(g)));
+    GAMES.forEach(g => allGames.appendChild(createCard(g)));
+
+    // ===== NAVIGATION =====
+    const homeView = document.getElementById("home-view");
+    const gamesView = document.getElementById("games-view");
+    const playerView = document.getElementById("player-view");
+    const gameIframe = document.getElementById("game-iframe");
+    const playerTitle = document.getElementById("player-title");
+    const tabs = document.querySelectorAll(".nav-tab");
+
+    function showView(name) {
+      homeView.style.display = name === "home" ? "block" : "none";
+      gamesView.style.display = name === "games" ? "block" : "none";
+      playerView.classList.remove("active");
+      gameIframe.src = ""; // unload previous game
+
+      tabs.forEach(t => {
+        t.classList.toggle("active", t.dataset.view === name);
+      });
+    }
+
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => showView(tab.dataset.view));
+    });
+
+    function openGame(game) {
+      homeView.style.display = "none";
+      gamesView.style.display = "none";
+      playerView.classList.add("active");
+      playerTitle.textContent = game.title;
+      gameIframe.src = game.url;
+      tabs.forEach(t => t.classList.remove("active"));
+    }
+
+    document.getElementById("back-btn").addEventListener("click", () => {
+      showView("games");
+    });
+  </script>
+</body>
+</html>
