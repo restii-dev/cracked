@@ -372,6 +372,128 @@
       margin-top: 0.75rem;
       text-align: center;
     }
+
+    /* ===== KEY GENERATOR ===== */
+    #generator-view {
+      display: none;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    #generator-view.active {
+      display: block;
+    }
+
+    .gen-box {
+      background: #121212;
+      border: 1px solid #222;
+      border-radius: 16px;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .gen-box h2 {
+      font-size: 1.3rem;
+      color: #eee;
+      margin-bottom: 0.5rem;
+    }
+
+    .gen-box p {
+      color: #666;
+      font-size: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+
+    #gen-result {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: #fff;
+      background: #0d0d0d;
+      border: 1px solid #333;
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1.25rem;
+      min-height: 3.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gen-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .gen-btn {
+      padding: 0.7rem 1.4rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+    }
+
+    .gen-btn.primary {
+      background: #f5f5f5;
+      color: #0a0a0a;
+    }
+
+    .gen-btn.primary:hover {
+      background: #fff;
+      transform: translateY(-2px);
+    }
+
+    .gen-btn.secondary {
+      background: #1a1a1a;
+      color: #ccc;
+      border: 1px solid #333;
+    }
+
+    .gen-btn.secondary:hover {
+      background: #252525;
+      border-color: #555;
+    }
+
+    #gen-list {
+      margin-top: 1.5rem;
+      text-align: left;
+    }
+
+    #gen-list h3 {
+      font-size: 0.95rem;
+      color: #888;
+      margin-bottom: 0.6rem;
+    }
+
+    #gen-keys {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    #gen-keys li {
+      background: #0d0d0d;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 0.4rem 0.8rem;
+      font-family: monospace;
+      font-size: 0.95rem;
+      letter-spacing: 2px;
+      color: #ccc;
+    }
+
+    .admin-only {
+      display: none;
+    }
+
+    .admin-only.show {
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -399,6 +521,7 @@
         <button class="nav-tab active" data-view="home">Home</button>
         <button class="nav-tab" data-view="tools">Tools</button>
         <button class="nav-tab" data-view="games">Games</button>
+        <button class="nav-tab admin-only" data-view="generator" id="gen-tab">Key Gen</button>
       </div>
     </header>
 
@@ -428,6 +551,24 @@
         <div class="cards-grid" id="all-games"></div>
       </div>
 
+      <!-- KEY GENERATOR (admin only) -->
+      <div id="generator-view">
+        <div class="gen-box">
+          <h2>Key Generator</h2>
+          <p>Create random access keys. Only Nick &amp; Administrator can use this.</p>
+          <div id="gen-result">----</div>
+          <div class="gen-actions">
+            <button class="gen-btn primary" id="gen-btn">Generate Key</button>
+            <button class="gen-btn secondary" id="copy-btn">Copy</button>
+            <button class="gen-btn secondary" id="save-btn">Save for session</button>
+          </div>
+          <div id="gen-list">
+            <h3>Session keys</h3>
+            <ul id="gen-keys"></ul>
+          </div>
+        </div>
+      </div>
+
       <!-- PLAYER -->
       <div id="player-view">
         <div class="player-bar">
@@ -448,10 +589,24 @@
 
   <script>
     // ===== KEY SYSTEM =====
-    const KEYS = {
+    const MASTER_KEYS = {
       "45ad": "Nick",
       "24bc": "Administrator"
     };
+
+    function loadSessionKeys() {
+      try {
+        return JSON.parse(localStorage.getItem("cracked_session_keys") || "{}");
+      } catch {
+        return {};
+      }
+    }
+
+    function saveSessionKeys(obj) {
+      localStorage.setItem("cracked_session_keys", JSON.stringify(obj));
+    }
+
+    let sessionKeys = loadSessionKeys();
 
     const keyInput = document.getElementById("key-input");
     const keyBtn = document.getElementById("key-btn");
@@ -460,16 +615,33 @@
     const app = document.getElementById("app");
     const userNameEl = document.getElementById("user-name");
 
+    let currentUser = null;
+    let isAdmin = false;
+
+    function unlock(name, admin) {
+      currentUser = name;
+      isAdmin = admin;
+      userNameEl.textContent = name;
+      keyScreen.classList.add("hidden");
+      setTimeout(() => {
+        keyScreen.style.display = "none";
+        app.classList.add("visible");
+      }, 500);
+      sessionStorage.setItem("cracked_user", name);
+      sessionStorage.setItem("cracked_admin", admin ? "1" : "0");
+
+      if (admin) {
+        document.querySelectorAll(".admin-only").forEach(el => el.classList.add("show"));
+        renderSessionKeys();
+      }
+    }
+
     function tryUnlock() {
       const code = keyInput.value.trim().toLowerCase();
-      if (KEYS[code]) {
-        userNameEl.textContent = KEYS[code];
-        keyScreen.classList.add("hidden");
-        setTimeout(() => {
-          keyScreen.style.display = "none";
-          app.classList.add("visible");
-        }, 500);
-        sessionStorage.setItem("cracked_user", KEYS[code]);
+      if (MASTER_KEYS[code]) {
+        unlock(MASTER_KEYS[code], true);
+      } else if (sessionKeys[code]) {
+        unlock(sessionKeys[code], false);
       } else {
         keyError.classList.add("show");
         keyInput.value = "";
@@ -483,11 +655,63 @@
       if (e.key === "Enter") tryUnlock();
     });
 
-    const saved = sessionStorage.getItem("cracked_user");
-    if (saved) {
-      userNameEl.textContent = saved;
-      keyScreen.style.display = "none";
-      app.classList.add("visible");
+    const savedUser = sessionStorage.getItem("cracked_user");
+    const savedAdmin = sessionStorage.getItem("cracked_admin") === "1";
+    if (savedUser) {
+      unlock(savedUser, savedAdmin);
+    }
+
+    // ===== KEY GENERATOR =====
+    const genResult = document.getElementById("gen-result");
+    const genKeysList = document.getElementById("gen-keys");
+    let lastGenerated = "";
+
+    function randomKey(len = 4) {
+      const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+      let out = "";
+      for (let i = 0; i < len; i++) {
+        out += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return out;
+    }
+
+    document.getElementById("gen-btn").addEventListener("click", () => {
+      lastGenerated = randomKey(4);
+      genResult.textContent = lastGenerated;
+    });
+
+    document.getElementById("copy-btn").addEventListener("click", () => {
+      if (!lastGenerated) return;
+      navigator.clipboard.writeText(lastGenerated).then(() => {
+        const btn = document.getElementById("copy-btn");
+        btn.textContent = "Copied!";
+        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+      });
+    });
+
+    document.getElementById("save-btn").addEventListener("click", () => {
+      if (!lastGenerated || !isAdmin) return;
+      const guestName = "Guest-" + lastGenerated.toUpperCase();
+      sessionKeys[lastGenerated] = guestName;
+      saveSessionKeys(sessionKeys);
+      renderSessionKeys();
+      const btn = document.getElementById("save-btn");
+      btn.textContent = "Saved!";
+      setTimeout(() => { btn.textContent = "Save for session"; }, 1500);
+    });
+
+    function renderSessionKeys() {
+      genKeysList.innerHTML = "";
+      const keys = Object.keys(sessionKeys);
+      if (keys.length === 0) {
+        genKeysList.innerHTML = "<li style='border:none;color:#555;'>None yet</li>";
+        return;
+      }
+      keys.forEach(k => {
+        const li = document.createElement("li");
+        li.textContent = k + " → " + sessionKeys[k];
+        genKeysList.appendChild(li);
+      });
     }
 
     // ===== DATA =====
@@ -510,7 +734,17 @@
       { id: "1v1-lol", title: "1v1.LOL", emoji: "🔫", url: "https://1v1.lol" },
       { id: "basket-random", title: "Basket Random", emoji: "🏀", url: "https://html5.gamedistribution.com/rvvASMiM/4f2c414c2c5b4b3e9c8e1f8e9c8e1f8e/index.html" },
       { id: "subway-surfers", title: "Subway Surfers", emoji: "🏃", url: "https://subway-surfers.org" },
-      { id: "cookie-clicker", title: "Cookie Clicker", emoji: "🍪", url: "https://orteil.dashnet.org/cookieclicker/" }
+      { id: "cookie-clicker", title: "Cookie Clicker", emoji: "🍪", url: "https://orteil.dashnet.org/cookieclicker/" },
+      { id: "run3", title: "Run 3", emoji: "🚀", url: "https://player03.com/run3/" },
+      { id: "tetris", title: "Tetris", emoji: "🟦", url: "https://tetris.com/play-tetris" },
+      { id: "flappy", title: "Flappy Bird", emoji: "🐦", url: "https://flappybird.io" },
+      { id: "geometry-dash", title: "Geometry Dash", emoji: "🔺", url: "https://scratch.mit.edu/projects/105500895/embed" },
+      { id: "crossy-road", title: "Crossy Road", emoji: "🐔", url: "https://poki.com/en/g/crossy-road" },
+      { id: "snake", title: "Snake", emoji: "🐍", url: "https://playsnake.org" },
+      { id: "2048", title: "2048", emoji: "🔢", url: "https://play2048.co" },
+      { id: "pacman", title: "Pac-Man", emoji: "👻", url: "https://www.google.com/logos/2010/pacman10-i.html" },
+      { id: "doodle-jump", title: "Doodle Jump", emoji: "✏️", url: "https://doodle-jump.io" },
+      { id: "moto-x3m", title: "Moto X3M", emoji: "🏍️", url: "https://moto-x3m.net" }
     ];
 
     function createCard(item) {
@@ -532,7 +766,7 @@
     const allGames = document.getElementById("all-games");
 
     TOOLS.slice(0, 6).forEach(t => homeTools.appendChild(createCard(t)));
-    GAMES.slice(0, 4).forEach(g => homeGames.appendChild(createCard(g)));
+    GAMES.slice(0, 6).forEach(g => homeGames.appendChild(createCard(g)));
     TOOLS.forEach(t => allTools.appendChild(createCard(t)));
     GAMES.forEach(g => allGames.appendChild(createCard(g)));
 
@@ -540,6 +774,7 @@
     const homeView = document.getElementById("home-view");
     const toolsView = document.getElementById("tools-view");
     const gamesView = document.getElementById("games-view");
+    const generatorView = document.getElementById("generator-view");
     const playerView = document.getElementById("player-view");
     const gameIframe = document.getElementById("game-iframe");
     const playerTitle = document.getElementById("player-title");
@@ -552,6 +787,7 @@
       homeView.style.display = name === "home" ? "block" : "none";
       toolsView.style.display = name === "tools" ? "block" : "none";
       gamesView.style.display = name === "games" ? "block" : "none";
+      generatorView.classList.toggle("active", name === "generator");
       playerView.classList.remove("active");
       gameIframe.src = "";
       currentUrl = "";
@@ -569,6 +805,7 @@
       homeView.style.display = "none";
       toolsView.style.display = "none";
       gamesView.style.display = "none";
+      generatorView.classList.remove("active");
       playerView.classList.add("active");
       playerTitle.textContent = item.title;
       currentUrl = item.url;
